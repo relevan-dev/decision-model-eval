@@ -1,0 +1,26 @@
+{
+  "name": "decision-model-eval",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Compare decision models on a search configuration task: accuracy, calibration, and latency.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "eval": "tsx --env-file-if-exists=.env src/cli.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}
