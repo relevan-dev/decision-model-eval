@@ -6,7 +6,7 @@
 
 At Relevan, we provide custom tuned indexes for each of our customers. Doing this involves a lot of engineering to determine which features benefit the index the most. So when Jev rolled out we wondered, could it step in and make decisions where human judgment might've been previously needed. 
 
-An eval that compares decision models on a real configuration task. It
+So we created an eval that compares decision models on a real configuration task. It
 measures how often each model is correct, whether its probabilities mean
 anything, and how long each answer takes.
 
