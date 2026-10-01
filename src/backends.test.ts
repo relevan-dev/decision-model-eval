@@ -32,6 +32,24 @@ describe(modelFromEnv, () => {
     expect(JSON.parse(String(init?.body))).toMatchObject({ model: "jev-latest" });
     vi.restoreAllMocks();
   });
+
+  it("sends CLM to a local clm-serve with the reference model by default", async () => {
+    vi.stubEnv("CLM_BASE_URL", "");
+    vi.stubEnv("CLM_MODEL", "");
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ answers: {} }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await modelFromEnv("clm")({ state: {}, questions: {} });
+
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(url instanceof URL ? url.href : url).toBe("http://127.0.0.1:8700/v1/systemone");
+    expect(JSON.parse(String(init?.body))).toMatchObject({ model: "clm-latest" });
+    vi.restoreAllMocks();
+  });
 });
 
 describe(isBackend, () => {

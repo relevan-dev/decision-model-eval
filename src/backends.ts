@@ -4,7 +4,7 @@ import { type DecisionModel, systemOneModel } from "./system-one";
 // Builds a decision model from a backend name and the environment. Each backend
 // names the variables it needs, so a missing key fails before the first call.
 
-export const BACKENDS = ["laya", "jev", "claude"] as const;
+export const BACKENDS = ["laya", "jev", "claude", "clm"] as const;
 
 export type Backend = (typeof BACKENDS)[number];
 
@@ -15,6 +15,11 @@ export function isBackend(value: string): value is Backend {
 const JEV_BASE_URL = "https://api.typesafe.ai";
 /** Jev requires a model name. `jev-latest` resolves to the current version. */
 const JEV_DEFAULT_MODEL = "jev-latest";
+
+/** `clm-serve` binds port 8700 by default. */
+const CLM_BASE_URL = "http://127.0.0.1:8700";
+/** The reference CLM-v0.1-8B head. */
+const CLM_DEFAULT_MODEL = "clm-latest";
 
 function required(name: string, hint: string): string {
   const value = process.env[name];
@@ -39,6 +44,9 @@ export function backendLabel(backend: Backend): string {
     }
     case "claude": {
       return `claude (${optional("CLAUDE_MODEL") ?? DEFAULT_CLAUDE_MODEL})`;
+    }
+    case "clm": {
+      return `clm (${optional("CLM_MODEL") ?? CLM_DEFAULT_MODEL})`;
     }
   }
 }
@@ -67,6 +75,15 @@ export function modelFromEnv(backend: Backend): DecisionModel {
     case "claude": {
       required("ANTHROPIC_API_KEY", "Get a key from the Claude Console.");
       return claudeModel({ model: optional("CLAUDE_MODEL") });
+    }
+    case "clm": {
+      return systemOneModel({
+        baseUrl: optional("CLM_BASE_URL") ?? CLM_BASE_URL,
+        apiKey: optional("CLM_API_KEY"),
+        model: optional("CLM_MODEL") ?? CLM_DEFAULT_MODEL,
+        // The first call waits on the embedding server's cold start.
+        timeoutMs: 120_000,
+      });
     }
   }
 }

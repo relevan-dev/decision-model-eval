@@ -50,7 +50,8 @@ const USAGE = `Usage: npm run eval -- [options]
 Environment, per backend:
   laya    LAYA_BASE_URL (required), LAYA_API_KEY, LAYA_MODEL
   jev     JEV_API_KEY (required), JEV_BASE_URL, JEV_MODEL
-  claude  ANTHROPIC_API_KEY (required), CLAUDE_MODEL`;
+  claude  ANTHROPIC_API_KEY (required), CLAUDE_MODEL
+  clm     CLM_BASE_URL (default http://127.0.0.1:8700), CLM_API_KEY, CLM_MODEL`;
 
 function parseUnitInterval(value: string | undefined, flag: string, fallback: number): number {
   if (value === undefined) {

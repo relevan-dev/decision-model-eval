@@ -16,13 +16,14 @@ matching**, and which encoder each one uses. Phonetic matching lets a search for
 fields, it adds wrong results. So someone must decide field by field, and this
 eval asks a model to do it.
 
-The eval ships with three backends:
+The eval ships with four backends:
 
 | Backend  | What it is                                                                     | How it answers                          |
 | -------- | ------------------------------------------------------------------------------ | --------------------------------------- |
 | `laya`   | [Laya](https://github.com/NandhaKishorM/laya), open weights (Apache 2.0), runs on your machine | Typed answers over the System One protocol |
 | `jev`    | Jev, TypeSafe's hosted model                                                   | Typed answers over the System One protocol |
 | `claude` | Claude, through the Claude API                                                 | A prompt, with structured outputs        |
+| `clm`    | [CLM-v0.1-8B](https://huggingface.co/Contrastive-LM/CLM-v0.1-8B), open weights (Apache 2.0), runs on your machine | Typed answers over the System One protocol |
 
 Every backend implements one function type, `DecisionModel` in
 [`src/system-one.ts`](src/system-one.ts). To test another model, write one
@@ -65,6 +66,17 @@ With more than one backend, the run ends with a comparison table.
   hosted API rejects a request with no model name. Set `JEV_MODEL` to pin a
   version.
 
+- **CLM** needs two local servers: a vLLM embedding server for Qwen3-8B, and
+  `clm-serve`, which scores those embeddings. The eval reaches `clm-serve` at
+  `http://127.0.0.1:8700` unless `CLM_BASE_URL` says otherwise.
+
+  ```bash
+  pip install contrastive-lm
+  vllm serve Qwen/Qwen3-8B --served-model-name qwen3-8b --runner pooling \
+    --max-model-len 2048 --host 127.0.0.1 --port 8090
+  clm-serve --host 127.0.0.1        # downloads CLM_v0.1-8B.pt on first use
+  ```
+
 - **Claude** needs `ANTHROPIC_API_KEY`. The default model is `claude-opus-5` at
   `low` effort. Set `CLAUDE_MODEL` to use another model.
 
@@ -72,7 +84,7 @@ With more than one backend, the run ends with a comparison table.
 
 | Flag                     | Meaning                                                                                                   |
 | ------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `--backend <name>`       | `laya`, `jev`, or `claude`. Repeatable.                                                                   |
+| `--backend <name>`       | `laya`, `jev`, `claude`, or `clm`. Repeatable.                                                            |
 | `--index <name>`         | Run one case. Repeatable.                                                                                 |
 | `--threshold <0-1>`      | Probability at or above which the feature goes on. Default 0.5.                                           |
 | `--min-confidence <0-1>` | Hold a field for human review below this confidence. The scale runs 0.5 (even split) to 1 (certain).      |
