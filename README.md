@@ -116,24 +116,30 @@ With more than one backend, the run ends with a comparison table.
 
 ## Sample results
 
-One run of all three backends on 2026-09-24, from one machine. Laya ran on its
-CPU. Jev and Claude ran over the internet. Your latency will differ.
+One run of Laya, Jev, and Claude on 2026-09-24, from one machine. Laya ran on
+its CPU. Jev and Claude ran over the internet. Clef ran on 2026-10-02 through
+[`clef-server/`](clef-server/) on an NVIDIA GB10 (DGX Spark). Your latency will
+differ.
 
-|                            | Laya     | Jev (`jev-1.13.0`) | Claude Opus 5 |
-| -------------------------- | -------- | ------------------ | ------------- |
-| Enable decision correct    | 29 of 35 | 35 of 35           | 35 of 35      |
-| Precision                  | 71%      | 100%               | 100%          |
-| Recall                     | 100%     | 100%               | 100%          |
-| Encoder correct            | 9 of 15  | 15 of 15           | 15 of 15      |
-| Whole index config correct | 4 of 10  | 10 of 10           | 10 of 10      |
-| Brier score                | 0.173    | 0.020              | 0.010         |
-| Median time per call       | 1.10 s   | 0.16 s             | 2.27 s        |
-| 95th percentile            | 1.14 s   | 0.24 s             | 3.42 s        |
-| Total                      | 38 s     | 6 s                | 84 s          |
+|                            | Laya     | Jev (`jev-1.13.0`) | Claude Opus 5 | Clef (local) |
+| -------------------------- | -------- | ------------------ | ------------- | ------------ |
+| Enable decision correct    | 29 of 35 | 35 of 35           | 35 of 35      | 34 of 35     |
+| Precision                  | 71%      | 100%               | 100%          | 94%          |
+| Recall                     | 100%     | 100%               | 100%          | 100%         |
+| Encoder correct            | 9 of 15  | 15 of 15           | 15 of 15      | 15 of 15     |
+| Whole index config correct | 4 of 10  | 10 of 10           | 10 of 10      | 9 of 10      |
+| Brier score                | 0.173    | 0.020              | 0.010         | 0.015        |
+| Median time per call       | 1.10 s   | 0.16 s             | 2.27 s        | 0.72 s       |
+| 95th percentile            | 1.14 s   | 0.24 s             | 3.42 s        | 0.73 s       |
+| Total                      | 38 s     | 6 s                | 84 s          | 25 s         |
+
+Clef's one miss turned on phonetic matching for `restaurant-listings.cuisine`
+at p = 0.548, its least confident answer. `--min-confidence 0.6` holds that
+field for review instead.
 
 The run sends one call at a time, after one warm-up call that is not counted.
 
-The same day, each architecture on all three backends:
+On 2026-09-24, each architecture on Laya, Jev, and Claude:
 
 | Architecture                  | Calls | Laya: enable, encoder, configs | Jev and Claude | Jev total | Claude total |
 | ----------------------------- | ----- | ------------------------------ | -------------- | --------- | ------------ |
