@@ -1,0 +1,39 @@
+[project]
+name = "clef-server"
+version = "0.1.0"
+description = "A minimal System One server for Cloudflare's Clef decision models."
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn>=0.34",
+  "torch>=2.11",
+  "transformers>=5.10.2",
+  "huggingface-hub>=1.0",
+  "safetensors>=0.5",
+  "accelerate>=1.0",
+  # The processor loads image and video processors even for text-only requests.
+  "pillow>=11",
+  "torchvision",
+]
+
+[project.scripts]
+clef-serve = "clef_server:main"
+
+[tool.uv]
+package = true
+# Triton compiles a C launcher on first use and needs Python.h. uv's managed
+# Pythons ship it; distro Pythons often do not.
+python-preference = "only-managed"
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }
+torchvision = { index = "pytorch-cu130" }
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

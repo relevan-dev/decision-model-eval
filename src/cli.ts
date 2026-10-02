@@ -51,7 +51,9 @@ Environment, per backend:
   laya    LAYA_BASE_URL (required), LAYA_API_KEY, LAYA_MODEL
   jev     JEV_API_KEY (required), JEV_BASE_URL, JEV_MODEL
   claude  ANTHROPIC_API_KEY (required), CLAUDE_MODEL
-  clm     CLM_BASE_URL (default http://127.0.0.1:8700), CLM_API_KEY, CLM_MODEL`;
+  clm     CLM_BASE_URL (default http://127.0.0.1:8700), CLM_API_KEY, CLM_MODEL
+  clef    CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN (required), CLEF_MODEL;
+          or CLEF_BASE_URL and CLEF_API_KEY for a System One server you host`;
 
 function parseUnitInterval(value: string | undefined, flag: string, fallback: number): number {
   if (value === undefined) {

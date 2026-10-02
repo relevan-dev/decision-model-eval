@@ -71,11 +71,38 @@ export interface SystemOneClientConfig {
   baseUrl: string;
   apiKey?: string;
   model?: string;
+  /** Route under `baseUrl`. Defaults to `/v1/systemone`. */
+  path?: string;
   /** Milliseconds before a request is aborted. Defaults to 30000. */
   timeoutMs?: number;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+
+/**
+ * Cloudflare's REST API wraps every body as `{ result, success, errors }`, so a
+ * System One model on Workers AI, such as Clef, arrives inside `result`.
+ */
+const cloudflareEnvelopeSchema = z.looseObject({
+  result: z.unknown(),
+  success: z.boolean(),
+  errors: z.array(z.looseObject({ message: z.string().optional() })).optional(),
+});
+
+function unwrapCloudflareEnvelope(body: unknown): unknown {
+  if (typeof body !== "object" || body === null || "answers" in body) {
+    return body;
+  }
+  const envelope = cloudflareEnvelopeSchema.safeParse(body);
+  if (!envelope.success) {
+    return body;
+  }
+  if (!envelope.data.success) {
+    const messages = (envelope.data.errors ?? []).map((error) => error.message).join("; ");
+    throw new Error(`System One request failed: ${messages || "the server reported no detail"}.`);
+  }
+  return envelope.data.result;
+}
 
 /** Builds the request body, so a caller can print it without a server. */
 export function systemOneRequestBody(
@@ -106,7 +133,7 @@ export async function evaluateSystemOne(
   request: SystemOneRequest,
   config: SystemOneClientConfig,
 ): Promise<SystemOneResponse> {
-  const url = new URL("/v1/systemone", config.baseUrl);
+  const url = new URL(config.path ?? "/v1/systemone", config.baseUrl);
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (config.apiKey) {
     headers["authorization"] = `Bearer ${config.apiKey}`;
@@ -126,7 +153,7 @@ export async function evaluateSystemOne(
     );
   }
 
-  const parsed = responseSchema.safeParse(await response.json());
+  const parsed = responseSchema.safeParse(unwrapCloudflareEnvelope(await response.json()));
   if (!parsed.success) {
     throw new Error(`System One server returned an unexpected payload: ${parsed.error.message}`);
   }

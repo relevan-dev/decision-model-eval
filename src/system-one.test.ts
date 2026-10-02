@@ -45,6 +45,26 @@ describe(evaluateSystemOne, () => {
     vi.restoreAllMocks();
   });
 
+  it("unwraps a Cloudflare result envelope", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({ result: { answers: { phonetic: { noul: 0.7 } } }, success: true, errors: [] }),
+    );
+
+    const result = await evaluateSystemOne(REQUEST, { baseUrl: "https://api.cloudflare.com" });
+
+    expect(result.answers["phonetic"]).toEqual({ noul: 0.7 });
+  });
+
+  it("reports the errors of a failed Cloudflare envelope", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({ result: null, success: false, errors: [{ code: 5006, message: "bad input" }] }),
+    );
+
+    await expect(
+      evaluateSystemOne(REQUEST, { baseUrl: "https://api.cloudflare.com" }),
+    ).rejects.toThrow(/bad input/);
+  });
+
   it("posts to /v1/systemone and returns the parsed answers", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")

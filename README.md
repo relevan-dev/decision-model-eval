@@ -16,7 +16,7 @@ matching**, and which encoder each one uses. Phonetic matching lets a search for
 fields, it adds wrong results. So someone must decide field by field, and this
 eval asks a model to do it.
 
-The eval ships with four backends:
+The eval ships with five backends:
 
 | Backend  | What it is                                                                     | How it answers                          |
 | -------- | ------------------------------------------------------------------------------ | --------------------------------------- |
@@ -24,6 +24,7 @@ The eval ships with four backends:
 | `jev`    | Jev, TypeSafe's hosted model                                                   | Typed answers over the System One protocol |
 | `claude` | Claude, through the Claude API                                                 | A prompt, with structured outputs        |
 | `clm`    | [CLM-v0.1-8B](https://huggingface.co/Contrastive-LM/CLM-v0.1-8B), open weights (Apache 2.0), runs on your machine | Typed answers over the System One protocol |
+| `clef`   | [Clef](https://huggingface.co/Cloudflare/clef), open weights (Apache 2.0), runs on your GPU or on Cloudflare Workers AI | Typed answers over the System One protocol |
 
 Every backend implements one function type, `DecisionModel` in
 [`src/system-one.ts`](src/system-one.ts). To test another model, write one
@@ -77,6 +78,25 @@ With more than one backend, the run ends with a comparison table.
   clm-serve --host 127.0.0.1        # downloads CLM_v0.1-8B.pt on first use
   ```
 
+- **Clef** runs on your own GPU through [`clef-server/`](clef-server/), a small
+  System One server around the `systemone()` function that ships with the
+  weights. It needs about 56 GB of GPU memory in BF16 and listens on
+  `127.0.0.1:8800`. Set `CLEF_BASE_URL` to use it:
+
+  ```bash
+  cd clef-server
+  uv run clef-serve                 # downloads Cloudflare/clef (52 GB) on first use
+  CLEF_BASE_URL=http://127.0.0.1:8800 npm run eval -- --backend clef
+  ```
+
+  `CLEF_MODEL_PATH` loads another checkpoint, such as `Cloudflare/clef-flash`,
+  and `CLEF_API_KEY` makes the server require a bearer token. The server
+  accepts text and JSON state only.
+
+  Without `CLEF_BASE_URL`, the eval calls Clef on Workers AI instead, with
+  `CLOUDFLARE_ACCOUNT_ID` and a `CLOUDFLARE_API_TOKEN` that has Workers AI
+  access. `CLEF_MODEL` picks `clef` or `clef-flash` there.
+
 - **Claude** needs `ANTHROPIC_API_KEY`. The default model is `claude-opus-5` at
   `low` effort. Set `CLAUDE_MODEL` to use another model.
 
@@ -84,7 +104,7 @@ With more than one backend, the run ends with a comparison table.
 
 | Flag                     | Meaning                                                                                                   |
 | ------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `--backend <name>`       | `laya`, `jev`, `claude`, or `clm`. Repeatable.                                                            |
+| `--backend <name>`       | `laya`, `jev`, `claude`, `clm`, or `clef`. Repeatable.                                                    |
 | `--index <name>`         | Run one case. Repeatable.                                                                                 |
 | `--threshold <0-1>`      | Probability at or above which the feature goes on. Default 0.5.                                           |
 | `--min-confidence <0-1>` | Hold a field for human review below this confidence. The scale runs 0.5 (even split) to 1 (certain).      |
