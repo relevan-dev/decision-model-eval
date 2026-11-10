@@ -203,6 +203,15 @@ Every wrong yes came at p = 0.8 or higher, so `--min-confidence` cannot hold
 them for review. The probabilities these chat models write out are not
 calibrated the way the System One models' are.
 
+With reasoning on (`NEMOTRON_THINKING=1`), one run of Lightning on the same day
+fixed every wrong yes: 34 of 35 enable decisions, 100% precision, 93% recall,
+14 of 14 encoders, 9 of 10 whole configs, and a Brier score of 0.030. Its one
+miss was a false negative, `medical-providers.city` at p = 0. Reasoning made it
+about 100 times slower: 39.9 s median per call, 188 s at the 95th percentile,
+and 35 minutes in total. This is one run, and the runs without reasoning
+changed from run to run, so read it as a direction, not a measurement. Nano was
+not run with reasoning on.
+
 On 2026-09-24, each architecture on Laya, Jev, and Claude:
 
 | Architecture                  | Calls | Laya: enable, encoder, configs | Jev and Claude | Jev total | Claude total |
