@@ -53,7 +53,13 @@ Environment, per backend:
   claude  ANTHROPIC_API_KEY (required), CLAUDE_MODEL
   clm     CLM_BASE_URL (default http://127.0.0.1:8700), CLM_API_KEY, CLM_MODEL
   clef    CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN (required), CLEF_MODEL;
-          or CLEF_BASE_URL and CLEF_API_KEY for a System One server you host`;
+          or CLEF_BASE_URL and CLEF_API_KEY for a System One server you host
+  nemotron-nano       NEMOTRON_NANO_BASE_URL (default http://127.0.0.1:8900),
+                      NEMOTRON_NANO_API_KEY, NEMOTRON_NANO_MODEL
+  nemotron-lightning  NEMOTRON_LIGHTNING_BASE_URL (default http://127.0.0.1:8901),
+                      NEMOTRON_LIGHTNING_API_KEY, NEMOTRON_LIGHTNING_MODEL
+  NEMOTRON_THINKING=1 lets either Nemotron model reason before it answers;
+  NEMOTRON_MAX_TOKENS caps generated tokens (default 1024, none with thinking)`;
 
 function parseUnitInterval(value: string | undefined, flag: string, fallback: number): number {
   if (value === undefined) {

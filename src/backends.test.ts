@@ -82,6 +82,39 @@ describe(modelFromEnv, () => {
   });
 });
 
+describe("nemotron backends", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ["nemotron-nano", "http://127.0.0.1:8900/v1/chat/completions", "nemotron-nano"],
+    ["nemotron-lightning", "http://127.0.0.1:8901/v1/chat/completions", "nemotron-lightning"],
+  ] as const)("sends %s to its local vLLM server by default", async (backend, href, model) => {
+    vi.stubEnv("NEMOTRON_NANO_BASE_URL", "");
+    vi.stubEnv("NEMOTRON_LIGHTNING_BASE_URL", "");
+    vi.stubEnv("NEMOTRON_NANO_MODEL", "");
+    vi.stubEnv("NEMOTRON_LIGHTNING_MODEL", "");
+    vi.stubEnv("NEMOTRON_THINKING", "");
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ choices: [{ message: { content: "{}" } }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await modelFromEnv(backend)({ state: {}, questions: {} });
+
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(url instanceof URL ? url.href : url).toBe(href);
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      model,
+      chat_template_kwargs: { enable_thinking: false },
+    });
+  });
+});
+
 describe(isBackend, () => {
   it("accepts only the known backends", () => {
     expect(isBackend("jev")).toBeTruthy();

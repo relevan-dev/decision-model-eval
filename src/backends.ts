@@ -1,10 +1,19 @@
 import { claudeModel, DEFAULT_CLAUDE_MODEL } from "./claude";
+import { chatCompletionsModel } from "./openai-chat";
 import { type DecisionModel, systemOneModel } from "./system-one";
 
 // Builds a decision model from a backend name and the environment. Each backend
 // names the variables it needs, so a missing key fails before the first call.
 
-export const BACKENDS = ["laya", "jev", "claude", "clm", "clef"] as const;
+export const BACKENDS = [
+  "laya",
+  "jev",
+  "claude",
+  "clm",
+  "clef",
+  "nemotron-nano",
+  "nemotron-lightning",
+] as const;
 
 export type Backend = (typeof BACKENDS)[number];
 
@@ -25,6 +34,39 @@ const CLM_DEFAULT_MODEL = "clm-latest";
 const CLOUDFLARE_API_URL = "https://api.cloudflare.com";
 /** The 27B model. `clef-flash` is the smaller, faster variant. */
 const CLEF_DEFAULT_MODEL = "clef";
+
+/**
+ * Nemotron runs on a local vLLM server with an OpenAI-compatible API. Each model
+ * gets its own default port, so both can be up for one comparison run, and its
+ * own served model name (`--served-model-name`).
+ */
+const NEMOTRON = {
+  "nemotron-nano": { prefix: "NEMOTRON_NANO", baseUrl: "http://127.0.0.1:8900", model: "nemotron-nano" },
+  "nemotron-lightning": {
+    prefix: "NEMOTRON_LIGHTNING",
+    baseUrl: "http://127.0.0.1:8901",
+    model: "nemotron-lightning",
+  },
+} as const;
+
+/** `NEMOTRON_MAX_TOKENS` caps generated tokens. Unset, the adapter picks. */
+function nemotronMaxTokens(): number | undefined {
+  const value = optional("NEMOTRON_MAX_TOKENS");
+  if (value === undefined) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`NEMOTRON_MAX_TOKENS must be a positive integer, not "${value}".`);
+  }
+  return parsed;
+}
+
+/** `NEMOTRON_THINKING=1` lets the model reason before it answers. Off by default. */
+function nemotronThinking(): boolean {
+  const value = optional("NEMOTRON_THINKING")?.toLowerCase();
+  return value === "1" || value === "true" || value === "on";
+}
 
 function required(name: string, hint: string): string {
   const value = process.env[name];
@@ -55,6 +97,12 @@ export function backendLabel(backend: Backend): string {
     }
     case "clef": {
       return `clef (${optional("CLEF_MODEL") ?? CLEF_DEFAULT_MODEL})`;
+    }
+    case "nemotron-nano":
+    case "nemotron-lightning": {
+      const { prefix, model } = NEMOTRON[backend];
+      const thinking = nemotronThinking() ? ", thinking" : "";
+      return `${backend} (${optional(`${prefix}_MODEL`) ?? model}${thinking})`;
     }
   }
 }
@@ -108,6 +156,17 @@ export function modelFromEnv(backend: Backend): DecisionModel {
         path: `/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/@cf/cloudflare/${model}`,
         apiKey: required("CLOUDFLARE_API_TOKEN", "Create a token with Workers AI access in the Cloudflare dashboard."),
         model,
+      });
+    }
+    case "nemotron-nano":
+    case "nemotron-lightning": {
+      const { prefix, baseUrl, model } = NEMOTRON[backend];
+      return chatCompletionsModel({
+        baseUrl: optional(`${prefix}_BASE_URL`) ?? baseUrl,
+        apiKey: optional(`${prefix}_API_KEY`),
+        model: optional(`${prefix}_MODEL`) ?? model,
+        thinking: nemotronThinking(),
+        maxTokens: nemotronMaxTokens(),
       });
     }
   }
