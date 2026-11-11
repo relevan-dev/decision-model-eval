@@ -16,7 +16,7 @@ matching**, and which encoder each one uses. Phonetic matching lets a search for
 fields, it adds wrong results. So someone must decide field by field, and this
 eval asks a model to do it.
 
-The eval ships with five backends:
+The eval ships with seven backends:
 
 | Backend  | What it is                                                                     | How it answers                          |
 | -------- | ------------------------------------------------------------------------------ | --------------------------------------- |
@@ -25,6 +25,8 @@ The eval ships with five backends:
 | `claude` | Claude, through the Claude API                                                 | A prompt, with structured outputs        |
 | `clm`    | [CLM-v0.1-8B](https://huggingface.co/Contrastive-LM/CLM-v0.1-8B), open weights (Apache 2.0), runs on your machine | Typed answers over the System One protocol |
 | `clef`   | [Clef](https://huggingface.co/Cloudflare/clef), open weights (Apache 2.0), runs on your GPU or on Cloudflare Workers AI | Typed answers over the System One protocol |
+| `nemotron-nano` | [Nemotron 3 Nano 30B-A3B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16), NVIDIA open weights, runs on your GPU through vLLM | The Claude prompt, with `json_schema` structured outputs |
+| `nemotron-lightning` | [Nemotron 3.5 Lightning 30B-A3B](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4), NVIDIA open weights, runs on your GPU through vLLM | The Claude prompt, with `json_schema` structured outputs |
 
 Every backend implements one function type, `DecisionModel` in
 [`src/system-one.ts`](src/system-one.ts). To test another model, write one
@@ -97,6 +99,37 @@ With more than one backend, the run ends with a comparison table.
   `CLOUDFLARE_ACCOUNT_ID` and a `CLOUDFLARE_API_TOKEN` that has Workers AI
   access. `CLEF_MODEL` picks `clef` or `clef-flash` there.
 
+- **Nemotron** runs as a chat model behind vLLM's OpenAI-compatible API.
+  [`src/openai-chat.ts`](src/openai-chat.ts) sends it the same prompt and answer
+  schema as Claude, and vLLM constrains decoding to that schema. Use vLLM
+  0.27.1 or later. On a 128 GB DGX Spark the two servers do not fit side by
+  side (vLLM reserves about 19 GiB for CUDA graphs), so run one at a time.
+  Each has its own default port:
+
+  ```bash
+  # Nemotron 3 Nano, on :8900
+  VLLM_USE_FLASHINFER_MOE_FP4=1 vllm serve nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4 \
+    --served-model-name nemotron-nano --host 127.0.0.1 --port 8900 \
+    --max-model-len 32768 --gpu-memory-utilization 0.35 --kv-cache-dtype fp8 \
+    --trust-remote-code --reasoning-parser nemotron_v3
+  npm run eval -- --backend nemotron-nano
+
+  # Nemotron 3.5 Lightning, on :8901
+  vllm serve nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4 \
+    --served-model-name nemotron-lightning --host 127.0.0.1 --port 8901 \
+    --max-model-len 32768 --gpu-memory-utilization 0.6 --kv-cache-dtype fp8 \
+    --moe-backend marlin --trust-remote-code --reasoning-parser nemotron_v3
+  npm run eval -- --backend nemotron-lightning
+  ```
+
+  Reasoning is off by default (`enable_thinking: false`), and decoding is
+  greedy. Set `NEMOTRON_THINKING=1` to let either model reason first, which is
+  slower; generation is then uncapped unless `NEMOTRON_MAX_TOKENS` sets a cap.
+  `NEMOTRON_NANO_BASE_URL`, `NEMOTRON_LIGHTNING_BASE_URL`, and the matching
+  `_MODEL` and `_API_KEY` variables point the eval elsewhere. Any other
+  OpenAI-compatible chat server works the same way through
+  `chatCompletionsModel`.
+
 - **Claude** needs `ANTHROPIC_API_KEY`. The default model is `claude-opus-5` at
   `low` effort. Set `CLAUDE_MODEL` to use another model.
 
@@ -104,7 +137,7 @@ With more than one backend, the run ends with a comparison table.
 
 | Flag                     | Meaning                                                                                                   |
 | ------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `--backend <name>`       | `laya`, `jev`, `claude`, `clm`, or `clef`. Repeatable.                                                    |
+| `--backend <name>`       | `laya`, `jev`, `claude`, `clm`, `clef`, `nemotron-nano`, or `nemotron-lightning`. Repeatable.            |
 | `--index <name>`         | Run one case. Repeatable.                                                                                 |
 | `--threshold <0-1>`      | Probability at or above which the feature goes on. Default 0.5.                                           |
 | `--min-confidence <0-1>` | Hold a field for human review below this confidence. The scale runs 0.5 (even split) to 1 (certain).      |
@@ -138,6 +171,46 @@ at p = 0.548, its least confident answer. `--min-confidence 0.6` holds that
 field for review instead.
 
 The run sends one call at a time, after one warm-up call that is not counted.
+
+### Nemotron
+
+Nemotron 3 Nano and Nemotron 3.5 Lightning ran on 2026-11-10 on the same GB10,
+with `vllm/vllm-openai:v0.27.1`, NVFP4 weights, and reasoning off. Even at
+temperature 0, their answers changed between runs, so each model ran five
+times. Each cell gives the range over the five runs.
+
+|                            | Nemotron 3 Nano | Nemotron 3.5 Lightning |
+| -------------------------- | --------------- | ---------------------- |
+| Enable decision correct    | 30–33 of 35     | 31–32 of 35            |
+| Precision                  | 75–88%          | 82–83%                 |
+| Recall                     | 100%            | 93–100%                |
+| Encoder correct            | 15 of 15        | 14 of 14 to 15 of 15   |
+| Whole index config correct | 7–8 of 10       | 7–8 of 10              |
+| Brier score                | 0.052–0.133     | 0.074–0.107            |
+| Median time per call       | 0.49–0.50 s     | 0.34 s                 |
+| 95th percentile            | 0.51 s          | 0.37 s                 |
+| Total                      | 17 s            | 12 s                   |
+
+Both models turn phonetic matching on for free-text fields that mention names.
+`recruiter-candidates.summary` was wrong in all ten runs, and
+`legacy-membership-roll.notes` in nine. Nano also missed
+`academic-papers.title` and `academic-papers.abstract` in three of five runs.
+Lightning turned it on for `recruiter-candidates.email` in every run, and in
+two runs turned it off for `medical-providers.clinicName` at p = 0.0, its only
+false negatives.
+
+Every wrong yes came at p = 0.8 or higher, so `--min-confidence` cannot hold
+them for review. The probabilities these chat models write out are not
+calibrated the way the System One models' are.
+
+With reasoning on (`NEMOTRON_THINKING=1`), one run of Lightning on the same day
+fixed every wrong yes: 34 of 35 enable decisions, 100% precision, 93% recall,
+14 of 14 encoders, 9 of 10 whole configs, and a Brier score of 0.030. Its one
+miss was a false negative, `medical-providers.city` at p = 0. Reasoning made it
+about 100 times slower: 39.9 s median per call, 188 s at the 95th percentile,
+and 35 minutes in total. This is one run, and the runs without reasoning
+changed from run to run, so read it as a direction, not a measurement. Nano was
+not run with reasoning on.
 
 On 2026-09-24, each architecture on Laya, Jev, and Claude:
 
